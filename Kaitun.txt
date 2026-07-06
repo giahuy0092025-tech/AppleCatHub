@@ -1,4 +1,4 @@
-repeat task.wait() until game:IsLoaded()
+https task.wait() until game:IsLoaded()
 repeat task.wait() until game.Players.LocalPlayer
 
 -- Khởi tạo các dịch vụ hệ thống Roblox
@@ -24,8 +24,8 @@ end)
 
 -- Tải thư viện UI AppleCat
 local Success, AppleCatLibrary = pcall(function()
-    return loadstring(game:HttpGet("https://raw.githubusercontent.com/giahuy908/Ui-Library/refs/heads/main/AppleCatLib.txt"))()
-end)
+    return loadstring(game:HttpGet("https://raw.githubusercontent.com/giahuy0092025-tech/AppleCatHub/refs/heads/main/AppleCatLib.txt"))()
+eend
 
 if not Success or not AppleCatLibrary then
     warn("Không thể tải thư viện AppleCat UI! Sử dụng fallback chạy nền.")
