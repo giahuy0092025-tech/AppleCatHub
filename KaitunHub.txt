@@ -1,0 +1,890 @@
+-- ====================================================================
+-- SCRIPT KAITUN BLOX FRUITS - APPLECAT PREMIUM EDITION
+-- ====================================================================
+
+repeat task.wait() until game:IsLoaded()
+repeat task.wait() until game.Players.LocalPlayer
+
+-- Khởi tạo các dịch vụ hệ thống Roblox
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+
+-- Khởi động script hỗ trợ tấn công từ bên ngoài
+pcall(function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/giahuy908/Blox-Fruit/refs/heads/main/attack.lua"))()
+end)
+
+-- Tải thư viện UI AppleCat
+local Success, AppleCatLibrary = pcall(function()
+    return loadstring(game:HttpGet("https://raw.githubusercontent.com/giahuy908/Ui-Library/refs/heads/main/AppleCatLib.txt"))()
+end)
+
+if not Success or not AppleCatLibrary then
+    warn("Không thể tải thư viện AppleCat UI! Sử dụng fallback chạy nền.")
+end
+
+-- ====================================================================
+-- BIẾN CẤU HÌNH TRẠNG THÁI TOÀN CỤC (GLOBAL STATE)
+-- ====================================================================
+_G.KaitunEnabled = false
+_G.AutoSaber = false
+_G.AutoCollectFruit = false
+_G.AutoStoreFruit = false
+_G.AutoBuyMelee = false
+_G.TweenSpeed = 300
+_G.SelectedWeapon = "Melee"
+
+-- Danh sách trái ác quỷ hỗ trợ gom và cất giữ
+local FruitList = {
+    "RocketFruit", "SpinFruit", "ChopFruit", "SpringFruit", "BombFruit",
+    "SmokeFruit", "SpikeFruit", "FlameFruit", "FalconFruit", "IceFruit",
+    "SandFruit", "DarkFruit", "DiamondFruit", "LightFruit", "RubberFruit",
+    "BarrierFruit", "GhostFruit", "MagmaFruit", "QuakeFruit", "BuddhaFruit",
+    "LoveFruit", "SpiderFruit", "SoundFruit", "PhoenixFruit", "PortalFruit",
+    "RumbleFruit", "PainFruit", "BlizzardFruit", "GravityFruit", "MammothFruit",
+    "T-RexFruit", "DoughFruit", "ShadowFruit", "VenomFruit", "ControlFruit",
+    "SpiritFruit", "LeopardFruit", "GasFruit", "YetiFruit", "DragonFruit"
+}
+
+-- ====================================================================
+-- HÀM TRỢ GIÚP DỊCH CHUYỂN MƯỢT MÀ (TWEEN UTILITIES)
+-- ====================================================================
+local function GetCharacterParts()
+    local char = LocalPlayer.Character
+    local hrp = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    return char, hrp, hum
+end
+
+local ActiveTween = nil
+local function TweenTo(targetCFrame)
+    local char, hrp, hum = GetCharacterParts()
+    if not hrp or (hum and hum.Health <= 0) then return end
+
+    if ActiveTween then
+        ActiveTween:Cancel()
+    end
+
+    local distance = (hrp.Position - targetCFrame.Position).Magnitude
+    local duration = distance / _G.TweenSpeed
+
+    local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear)
+    ActiveTween = TweenService:Create(hrp, tweenInfo, {CFrame = targetCFrame})
+    ActiveTween:Play()
+
+    -- Vòng lặp chờ tween hoàn thành hoặc bị ngắt
+    local completed = false
+    local connection
+    connection = ActiveTween.Completed:Connect(function()
+        completed = true
+        connection:Disconnect()
+    end)
+
+    repeat
+        task.wait()
+        -- Kích hoạt NoClip trong lúc di chuyển để tránh kẹt map
+        for _, part in pairs(char:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    until completed or not _G.KaitunEnabled or not ActiveTween
+end
+
+-- ====================================================================
+-- BỘ DỮ LIỆU NHIỆM VỤ (QUESTS DATABASE & LEVEL ENGINE)
+-- ====================================================================
+local CurrentSea = 1
+if game.PlaceId == 2753915549 or game.PlaceId == 85211729168715 then
+    CurrentSea = 1
+elseif game.PlaceId == 4442272183 or game.PlaceId == 79091703265657 then
+    CurrentSea = 2
+elseif game.PlaceId == 7449423635 or game.PlaceId == 100117331123089 then
+    CurrentSea = 3
+end
+
+local function GetQuestData()
+    local level = LocalPlayer.Data.Level.Value
+    local data = {}
+
+    if CurrentSea == 1 then
+        if level >= 1 and level < 10 then
+            data.QuestName = "BanditQuest1"
+            data.LevelIndex = 1
+            data.MobName = "Bandit"
+            data.QuestNPC = CFrame.new(1060.9, 16.4, 1547.7)
+            data.MobArea = CFrame.new(1038.5, 41.2, 1576.5)
+        elseif level >= 10 and level < 15 then
+            data.QuestName = "JungleQuest"
+            data.LevelIndex = 1
+            data.MobName = "Monkey"
+            data.QuestNPC = CFrame.new(-1601.6, 36.8, 153.3)
+            data.MobArea = CFrame.new(-1448.1, 50.8, 63.6)
+        elseif level >= 15 and level < 30 then
+            data.QuestName = "JungleQuest"
+            data.LevelIndex = 2
+            data.MobName = "Gorilla"
+            data.QuestNPC = CFrame.new(-1601.6, 36.8, 153.3)
+            data.MobArea = CFrame.new(-1142.6, 40.4, -515.3)
+        elseif level >= 30 and level < 40 then
+            data.QuestName = "BuggyQuest1"
+            data.LevelIndex = 1
+            data.MobName = "Pirate"
+            data.QuestNPC = CFrame.new(-1141.0, 4.1, 3831.5)
+            data.MobArea = CFrame.new(-1103.5, 13.7, 3896.0)
+        elseif level >= 40 and level < 60 then
+            data.QuestName = "BuggyQuest1"
+            data.LevelIndex = 2
+            data.MobName = "Brute"
+            data.QuestNPC = CFrame.new(-1141.0, 4.1, 3831.5)
+            data.MobArea = CFrame.new(-1140.0, 14.8, 4322.9)
+        elseif level >= 60 and level < 75 then
+            data.QuestName = "DesertQuest"
+            data.LevelIndex = 1
+            data.MobName = "Desert Bandit"
+            data.QuestNPC = CFrame.new(894.4, 5.1, 4392.4)
+            data.MobArea = CFrame.new(924.7, 6.4, 4481.5)
+        elseif level >= 75 and level < 90 then
+            data.QuestName = "DesertQuest"
+            data.LevelIndex = 2
+            data.MobName = "Desert Officer"
+            data.QuestNPC = CFrame.new(894.4, 5.1, 4392.4)
+            data.MobArea = CFrame.new(1608.2, 8.6, 4371.0)
+        elseif level >= 90 and level < 100 then
+            data.QuestName = "SnowQuest"
+            data.LevelIndex = 1
+            data.MobName = "Snow Bandit"
+            data.QuestNPC = CFrame.new(1389.7, 88.1, -1298.9)
+            data.MobArea = CFrame.new(1354.3, 87.2, -1393.9)
+        elseif level >= 100 and level < 120 then
+            data.QuestName = "SnowQuest"
+            data.LevelIndex = 2
+            data.MobName = "Snowman"
+            data.QuestNPC = CFrame.new(1389.7, 88.1, -1298.9)
+            data.MobArea = CFrame.new(1201.6, 144.5, -1550.0)
+        elseif level >= 120 and level < 150 then
+            data.QuestName = "MarineQuest2"
+            data.LevelIndex = 1
+            data.MobName = "Chief Petty Officer"
+            data.QuestNPC = CFrame.new(-5039.5, 27.3, 4324.6)
+            data.MobArea = CFrame.new(-4881.2, 22.6, 4273.7)
+        elseif level >= 150 and level < 175 then
+            data.QuestName = "SkyQuest"
+            data.LevelIndex = 1
+            data.MobName = "Sky Bandit"
+            data.QuestNPC = CFrame.new(-4839.5, 716.3, -2619.4)
+            data.MobArea = CFrame.new(-4953.2, 295.7, -2899.2)
+        elseif level >= 175 and level < 190 then
+            data.QuestName = "SkyQuest"
+            data.LevelIndex = 2
+            data.MobName = "Dark Master"
+            data.QuestNPC = CFrame.new(-4839.5, 716.3, -2619.4)
+            data.MobArea = CFrame.new(-5259.8, 391.3, -2229.0)
+        elseif level >= 190 and level < 210 then
+            data.QuestName = "PrisonerQuest"
+            data.LevelIndex = 1
+            data.MobName = "Prisoner"
+            data.QuestNPC = CFrame.new(5308.9, 1.6, 475.1)
+            data.MobArea = CFrame.new(5098.9, -0.3, 474.2)
+        elseif level >= 210 and level < 250 then
+            data.QuestName = "PrisonerQuest"
+            data.LevelIndex = 2
+            data.MobName = "Dangerous Prisoner"
+            data.QuestNPC = CFrame.new(5308.9, 1.6, 475.1)
+            data.MobArea = CFrame.new(5654.5, 15.6, 866.2)
+        elseif level >= 250 and level < 275 then
+            data.QuestName = "ColosseumQuest"
+            data.LevelIndex = 1
+            data.MobName = "Toga Warrior"
+            data.QuestNPC = CFrame.new(-1580.0, 6.3, -2986.4)
+            data.MobArea = CFrame.new(-1820.2, 51.6, -2740.6)
+        elseif level >= 275 and level < 300 then
+            data.QuestName = "ColosseumQuest"
+            data.LevelIndex = 2
+            data.MobName = "Gladiator"
+            data.QuestNPC = CFrame.new(-1580.0, 6.3, -2986.4)
+            data.MobArea = CFrame.new(-1292.8, 56.3, -3339.0)
+        elseif level >= 300 and level < 325 then
+            data.QuestName = "MagmaQuest"
+            data.LevelIndex = 1
+            data.MobName = "Military Soldier"
+            data.QuestNPC = CFrame.new(-5313.3, 10.9, 8515.2)
+            data.MobArea = CFrame.new(-5411.1, 11.0, 8454.2)
+        elseif level >= 325 and level < 375 then
+            data.QuestName = "MagmaQuest"
+            data.LevelIndex = 2
+            data.MobName = "Military Spy"
+            data.QuestNPC = CFrame.new(-5313.3, 10.9, 8515.2)
+            data.MobArea = CFrame.new(-5802.8, 86.2, 8828.8)
+        elseif level >= 375 and level < 400 then
+            data.QuestName = "FishmanQuest"
+            data.LevelIndex = 1
+            data.MobName = "Fishman Warrior"
+            data.QuestNPC = CFrame.new(61122.6, 18.4, 1569.3)
+            data.MobArea = CFrame.new(60878.3, 18.4, 1543.7)
+        elseif level >= 400 and level < 450 then
+            data.QuestName = "FishmanQuest"
+            data.LevelIndex = 2
+            data.MobName = "Fishman Commando"
+            data.QuestNPC = CFrame.new(61122.6, 18.4, 1569.3)
+            data.MobArea = CFrame.new(61922.6, 18.4, 1493.9)
+        elseif level >= 450 and level < 475 then
+            data.QuestName = "SkyExp1Quest"
+            data.LevelIndex = 1
+            data.MobName = "God's Guard"
+            data.QuestNPC = CFrame.new(-4721.8, 843.8, -1949.9)
+            data.MobArea = CFrame.new(-4710.0, 845.2, -1927.3)
+        elseif level >= 475 and level < 525 then
+            data.QuestName = "SkyExp1Quest"
+            data.LevelIndex = 2
+            data.MobName = "Shanda"
+            data.QuestNPC = CFrame.new(-7859.0, 5544.1, -381.4)
+            data.MobArea = CFrame.new(-7678.4, 5566.4, -497.2)
+        elseif level >= 525 and level < 550 then
+            data.QuestName = "SkyExp2Quest"
+            data.LevelIndex = 1
+            data.MobName = "Royal Squad"
+            data.QuestNPC = CFrame.new(-7906.8, 5634.6, -1411.9)
+            data.MobArea = CFrame.new(-7624.2, 5658.1, -1467.3)
+        elseif level >= 550 and level < 625 then
+            data.QuestName = "SkyExp2Quest"
+            data.LevelIndex = 2
+            data.MobName = "Royal Soldier"
+            data.QuestNPC = CFrame.new(-7906.8, 5634.6, -1411.9)
+            data.MobArea = CFrame.new(-7836.7, 5645.6, -1790.6)
+        elseif level >= 625 and level < 650 then
+            data.QuestName = "FountainQuest"
+            data.LevelIndex = 1
+            data.MobName = "Galley Pirate"
+            data.QuestNPC = CFrame.new(5259.8, 37.3, 4050.0)
+            data.MobArea = CFrame.new(5551.0, 78.9, 3930.4)
+        elseif level >= 650 then
+            data.QuestName = "FountainQuest"
+            data.LevelIndex = 2
+            data.MobName = "Galley Captain"
+            data.QuestNPC = CFrame.new(5259.8, 37.3, 4050.0)
+            data.MobArea = CFrame.new(5441.9, 42.5, 4950.0)
+        end
+    elseif CurrentSea == 2 then
+        if level >= 700 and level < 725 then
+            data.QuestName = "Area1Quest"
+            data.LevelIndex = 1
+            data.MobName = "Raider"
+            data.QuestNPC = CFrame.new(-429.5, 71.7, 1836.1)
+            data.MobArea = CFrame.new(-728.3, 52.7, 2345.7)
+        elseif level >= 725 and level < 775 then
+            data.QuestName = "Area1Quest"
+            data.LevelIndex = 2
+            data.MobName = "Mercenary"
+            data.QuestNPC = CFrame.new(-429.5, 71.7, 1836.1)
+            data.MobArea = CFrame.new(-1004.3, 80.1, 1424.6)
+        elseif level >= 775 and level < 800 then
+            data.QuestName = "Area2Quest"
+            data.LevelIndex = 1
+            data.MobName = "Swan Pirate"
+            data.QuestNPC = CFrame.new(638.4, 71.7, 918.2)
+            data.MobArea = CFrame.new(1068.6, 137.6, 1322.1)
+        elseif level >= 800 and level < 875 then
+            data.QuestName = "Area2Quest"
+            data.LevelIndex = 2
+            data.MobName = "Factory Staff"
+            data.QuestNPC = CFrame.new(632.6, 73.1, 918.6)
+            data.MobArea = CFrame.new(73.0, 81.8, -27.4)
+        elseif level >= 875 and level < 900 then
+            data.QuestName = "MarineQuest3"
+            data.LevelIndex = 1
+            data.MobName = "Marine Lieutenant"
+            data.QuestNPC = CFrame.new(-2440.7, 71.7, -3216.0)
+            data.MobArea = CFrame.new(-2821.3, 75.8, -3070.0)
+        elseif level >= 900 and level < 950 then
+            data.QuestName = "MarineQuest3"
+            data.LevelIndex = 2
+            data.MobName = "Marine Captain"
+            data.QuestNPC = CFrame.new(-2440.7, 71.7, -3216.0)
+            data.MobArea = CFrame.new(-1861.2, 80.1, -3254.6)
+        elseif level >= 950 and level < 975 then
+            data.QuestName = "ZombieQuest"
+            data.LevelIndex = 1
+            data.MobName = "Zombie"
+            data.QuestNPC = CFrame.new(-5497.0, 47.5, -795.2)
+            data.MobArea = CFrame.new(-5657.7, 78.9, -928.6)
+        elseif level >= 975 and level < 1000 then
+            data.QuestName = "ZombieQuest"
+            data.LevelIndex = 2
+            data.MobName = "Vampire"
+            data.QuestNPC = CFrame.new(-5497.0, 47.5, -795.2)
+            data.MobArea = CFrame.new(-6037.6, 32.1, -1340.6)
+        elseif level >= 1000 and level < 1050 then
+            data.QuestName = "SnowMountainQuest"
+            data.LevelIndex = 1
+            data.MobName = "Snow Trooper"
+            data.QuestNPC = CFrame.new(609.8, 400.1, -5372.2)
+            data.MobArea = CFrame.new(549.1, 427.3, -5563.6)
+        elseif level >= 1050 and level < 1100 then
+            data.QuestName = "SnowMountainQuest"
+            data.LevelIndex = 2
+            data.MobName = "Winter Warrior"
+            data.QuestNPC = CFrame.new(609.8, 400.1, -5372.2)
+            data.MobArea = CFrame.new(1142.7, 475.6, -5199.4)
+        elseif level >= 1100 and level < 1125 then
+            data.QuestName = "IceSideQuest"
+            data.LevelIndex = 1
+            data.MobName = "Lab Subordinate"
+            data.QuestNPC = CFrame.new(-6064.0, 15.2, -4902.9)
+            data.MobArea = CFrame.new(-5707.4, 15.9, -4513.3)
+        elseif level >= 1125 and level < 1175 then
+            data.QuestName = "IceSideQuest"
+            data.LevelIndex = 2
+            data.MobName = "Horned Warrior"
+            data.QuestNPC = CFrame.new(-6064.0, 15.2, -4902.9)
+            data.MobArea = CFrame.new(-6341.3, 15.9, -5723.1)
+        elseif level >= 1175 and level < 1200 then
+            data.QuestName = "FireSideQuest"
+            data.LevelIndex = 1
+            data.MobName = "Magma Ninja"
+            data.QuestNPC = CFrame.new(-5428.0, 15.0, -5299.4)
+            data.MobArea = CFrame.new(-5449.6, 76.6, -5808.2)
+        elseif level >= 1200 and level < 1250 then
+            data.QuestName = "FireSideQuest"
+            data.LevelIndex = 2
+            data.MobName = "Lava Pirate"
+            data.QuestNPC = CFrame.new(-5428.0, 15.0, -5299.4)
+            data.MobArea = CFrame.new(-5213.3, 49.7, -4701.4)
+        elseif level >= 1250 and level < 1275 then
+            data.QuestName = "ShipQuest1"
+            data.LevelIndex = 1
+            data.MobName = "Ship Deckhand"
+            data.QuestNPC = CFrame.new(1037.8, 125.0, 32911.6)
+            data.MobArea = CFrame.new(1212.0, 150.7, 33059.2)
+        elseif level >= 1275 and level < 1300 then
+            data.QuestName = "ShipQuest1"
+            data.LevelIndex = 2
+            data.MobName = "Ship Engineer"
+            data.QuestNPC = CFrame.new(1037.8, 125.0, 32911.6)
+            data.MobArea = CFrame.new(919.4, 43.5, 32779.9)
+        elseif level >= 1300 and level < 1325 then
+            data.QuestName = "ShipQuest2"
+            data.LevelIndex = 1
+            data.MobName = "Ship Steward"
+            data.QuestNPC = CFrame.new(968.8, 125.0, 33244.1)
+            data.MobArea = CFrame.new(919.4, 129.5, 33436.0)
+        elseif level >= 1325 and level < 1350 then
+            data.QuestName = "ShipQuest2"
+            data.LevelIndex = 2
+            data.MobName = "Ship Officer"
+            data.QuestNPC = CFrame.new(968.8, 125.0, 33244.1)
+            data.MobArea = CFrame.new(1036.0, 181.4, 33315.7)
+        elseif level >= 1350 and level < 1375 then
+            data.QuestName = "FrostQuest"
+            data.LevelIndex = 1
+            data.MobName = "Arctic Warrior"
+            data.QuestNPC = CFrame.new(5667.6, 26.7, -6486.0)
+            data.MobArea = CFrame.new(5966.2, 62.9, -6179.3)
+        elseif level >= 1375 and level < 1425 then
+            data.QuestName = "FrostQuest"
+            data.LevelIndex = 2
+            data.MobName = "Snow Lurker"
+            data.QuestNPC = CFrame.new(5667.6, 26.7, -6486.0)
+            data.MobArea = CFrame.new(5407.0, 69.1, -6880.8)
+        elseif level >= 1425 and level < 1450 then
+            data.QuestName = "ForgottenQuest"
+            data.LevelIndex = 1
+            data.MobName = "Sea Soldier"
+            data.QuestNPC = CFrame.new(-3054.4, 235.5, -10142.8)
+            data.MobArea = CFrame.new(-3028.2, 64.6, -9775.4)
+        elseif level >= 1450 then
+            data.QuestName = "ForgottenQuest"
+            data.LevelIndex = 2
+            data.MobName = "Water Fighter"
+            data.QuestNPC = CFrame.new(-3054.4, 235.5, -10142.8)
+            data.MobArea = CFrame.new(-3352.9, 285.0, -10534.8)
+        end
+    elseif CurrentSea == 3 then
+        if level >= 1500 and level < 1525 then
+            data.QuestName = "PiratePortQuest"
+            data.LevelIndex = 1
+            data.MobName = "Pirate Millionaire"
+            data.QuestNPC = CFrame.new(-450.1, 107.6, 5950.7)
+            data.MobArea = CFrame.new(-245.9, 47.3, 5584.1)
+        elseif level >= 1525 and level < 1575 then
+            data.QuestName = "PiratePortQuest"
+            data.LevelIndex = 2
+            data.MobName = "Pistol Billionaire"
+            data.QuestNPC = CFrame.new(-450.1, 107.6, 5950.7)
+            data.MobArea = CFrame.new(-54.8, 83.7, 5947.8)
+        elseif level >= 1575 and level < 1600 then
+            data.QuestName = "DragonCrewQuest"
+            data.LevelIndex = 1
+            data.MobName = "Dragon Crew Warrior"
+            data.QuestNPC = CFrame.new(6750.4, 127.4, -711.0)
+            data.MobArea = CFrame.new(6709.7, 52.3, -1139.0)
+        elseif level >= 1600 and level < 1625 then
+            data.QuestName = "DragonCrewQuest"
+            data.LevelIndex = 2
+            data.MobName = "Dragon Crew Archer"
+            data.QuestNPC = CFrame.new(6750.4, 127.4, -711.0)
+            data.MobArea = CFrame.new(6668.7, 481.3, 329.1)
+        elseif level >= 1625 and level < 1650 then
+            data.QuestName = "VenomCrewQuest"
+            data.LevelIndex = 1
+            data.MobName = "Hydra Enforcer"
+            data.QuestNPC = CFrame.new(5206.4, 1004.1, 748.3)
+            data.MobArea = CFrame.new(4547.1, 1003.1, 334.1)
+        elseif level >= 1650 and level < 1700 then
+            data.QuestName = "VenomCrewQuest"
+            data.LevelIndex = 2
+            data.MobName = "Venomous Assailant"
+            data.QuestNPC = CFrame.new(5206.4, 1004.1, 748.3)
+            data.MobArea = CFrame.new(4674.9, 1134.8, 996.3)
+        elseif level >= 1700 and level < 1725 then
+            data.QuestName = "MarineTreeIsland"
+            data.LevelIndex = 1
+            data.MobName = "Marine Commodore"
+            data.QuestNPC = CFrame.new(2481.0, 74.2, -6779.6)
+            data.MobArea = CFrame.new(2577.2, 75.6, -7739.8)
+        elseif level >= 1725 and level < 1775 then
+            data.QuestName = "MarineTreeIsland"
+            data.LevelIndex = 2
+            data.MobName = "Marine Rear Admiral"
+            data.QuestNPC = CFrame.new(2481.0, 74.2, -6779.6)
+            data.MobArea = CFrame.new(3761.8, 123.9, -6823.5)
+        elseif level >= 1775 and level < 1800 then
+            data.QuestName = "DeepForestIsland3"
+            data.LevelIndex = 1
+            data.MobName = "Fishman Raider"
+            data.QuestNPC = CFrame.new(-10581.6, 330.8, -8761.1)
+            data.MobArea = CFrame.new(-10407.5, 331.7, -8368.5)
+        elseif level >= 1800 and level < 1825 then
+            data.QuestName = "DeepForestIsland3"
+            data.LevelIndex = 2
+            data.MobName = "Fishman Captain"
+            data.QuestNPC = CFrame.new(-10581.6, 330.8, -8761.1)
+            data.MobArea = CFrame.new(-10994.7, 352.3, -9002.1)
+        elseif level >= 1825 and level < 1850 then
+            data.QuestName = "DeepForestIsland"
+            data.LevelIndex = 1
+            data.MobName = "Forest Pirate"
+            data.QuestNPC = CFrame.new(-13234.0, 331.4, -7625.4)
+            data.MobArea = CFrame.new(-13274.4, 332.3, -7769.5)
+        elseif level >= 1850 and level < 1900 then
+            data.QuestName = "DeepForestIsland"
+            data.LevelIndex = 2
+            data.MobName = "Mythological Pirate"
+            data.QuestNPC = CFrame.new(-13234.0, 331.4, -7625.4)
+            data.MobArea = CFrame.new(-13680.6, 501.0, -7084.4)
+        elseif level >= 1900 and level < 1925 then
+            data.QuestName = "DeepForestIsland2"
+            data.LevelIndex = 1
+            data.MobName = "Jungle Pirate"
+            data.QuestNPC = CFrame.new(-12680.3, 389.9, -9902.0)
+            data.MobArea = CFrame.new(-12256.1, 331.7, -10485.8)
+        elseif level >= 1925 and level < 1975 then
+            data.QuestName = "DeepForestIsland2"
+            data.LevelIndex = 2
+            data.MobName = "Musketeer Pirate"
+            data.QuestNPC = CFrame.new(-12680.3, 389.9, -9902.0)
+            data.MobArea = CFrame.new(-13457.9, 391.5, -9859.1)
+        elseif level >= 1975 and level < 2000 then
+            data.QuestName = "HauntedQuest1"
+            data.LevelIndex = 1
+            data.MobName = "Reborn Skeleton"
+            data.QuestNPC = CFrame.new(-9479.2, 141.2, 5566.0)
+            data.MobArea = CFrame.new(-8763.7, 165.7, 6159.8)
+        elseif level >= 2000 and level < 2025 then
+            data.QuestName = "HauntedQuest1"
+            data.LevelIndex = 2
+            data.MobName = "Living Zombie"
+            data.QuestNPC = CFrame.new(-9479.2, 141.2, 5566.0)
+            data.MobArea = CFrame.new(-10144.1, 138.6, 5838.0)
+        elseif level >= 2025 and level < 2050 then
+            data.QuestName = "HauntedQuest2"
+            data.LevelIndex = 1
+            data.MobName = "Demonic Soul"
+            data.QuestNPC = CFrame.new(-9516.9, 172.0, 6078.4)
+            data.MobArea = CFrame.new(-9505.8, 172.1, 6158.9)
+        elseif level >= 2050 and level < 2075 then
+            data.QuestName = "HauntedQuest2"
+            data.LevelIndex = 2
+            data.MobName = "Posessed Mummy"
+            data.QuestNPC = CFrame.new(-9516.9, 172.0, 6078.4)
+            data.MobArea = CFrame.new(-9582.0, 6.2, 6205.4)
+        elseif level >= 2075 and level < 2100 then
+            data.QuestName = "NutsIslandQuest"
+            data.LevelIndex = 1
+            data.MobName = "Peanut Scout"
+            data.QuestNPC = CFrame.new(-2104.3, 38.1, -10194.2)
+            data.MobArea = CFrame.new(-2143.2, 47.7, -10029.9)
+        elseif level >= 2100 and level < 2125 then
+            data.QuestName = "NutsIslandQuest"
+            data.LevelIndex = 2
+            data.MobName = "Peanut President"
+            data.QuestNPC = CFrame.new(-2104.3, 38.1, -10194.2)
+            data.MobArea = CFrame.new(-1859.3, 38.1, -10422.4)
+        elseif level >= 2125 and level < 2150 then
+            data.QuestName = "IceCreamIslandQuest"
+            data.LevelIndex = 1
+            data.MobName = "Ice Cream Chef"
+            data.QuestNPC = CFrame.new(-820.6, 65.8, -10965.7)
+            data.MobArea = CFrame.new(-872.2, 65.8, -10919.9)
+        elseif level >= 2150 and level < 2200 then
+            data.QuestName = "IceCreamIslandQuest"
+            data.LevelIndex = 2
+            data.MobName = "Ice Cream Commander"
+            data.QuestNPC = CFrame.new(-820.6, 65.8, -10965.7)
+            data.MobArea = CFrame.new(-558.0, 112.0, -11290.7)
+        elseif level >= 2200 and level < 2225 then
+            data.QuestName = "CakeQuest1"
+            data.LevelIndex = 1
+            data.MobName = "Cookie Crafter"
+            data.QuestNPC = CFrame.new(-2021.3, 37.7, -12028.7)
+            data.MobArea = CFrame.new(-2374.1, 37.7, -12125.3)
+        elseif level >= 2225 and level < 2250 then
+            data.QuestName = "CakeQuest1"
+            data.LevelIndex = 2
+            data.MobName = "Cake Guard"
+            data.QuestNPC = CFrame.new(-2021.3, 37.7, -12028.7)
+            data.MobArea = CFrame.new(-1598.3, 43.7, -12244.5)
+        elseif level >= 2250 and level < 2275 then
+            data.QuestName = "CakeQuest2"
+            data.LevelIndex = 1
+            data.MobName = "Baking Staff"
+            data.QuestNPC = CFrame.new(-1927.9, 37.7, -12842.5)
+            data.MobArea = CFrame.new(-1887.8, 77.6, -12998.3)
+        elseif level >= 2275 then
+            data.QuestName = "CakeQuest2"
+            data.LevelIndex = 2
+            data.MobName = "Head Baker"
+            data.QuestNPC = CFrame.new(-1927.9, 37.7, -12842.5)
+            data.MobArea = CFrame.new(-2216.1, 82.8, -12869.2)
+        end
+    end
+    return data
+end
+
+-- ====================================================================
+-- TRANG BỊ VŨ KHÍ (WEAPON EQUIPPERS)
+-- ====================================================================
+local function EquipSelectedWeapon()
+    local char, hrp, hum = GetCharacterParts()
+    if not char then return end
+
+    local toolName = nil
+    if _G.SelectedWeapon == "Melee" then
+        for _, t in pairs(LocalPlayer.Backpack:GetChildren()) do
+            if t:IsA("Tool") and t.ToolTip == "Melee" then
+                toolName = t.Name
+                break
+            end
+        end
+    elseif _G.SelectedWeapon == "Sword" then
+        for _, t in pairs(LocalPlayer.Backpack:GetChildren()) do
+            if t:IsA("Tool") and t.ToolTip == "Sword" then
+                toolName = t.Name
+                break
+            end
+        end
+    elseif _G.SelectedWeapon == "Fruit" then
+        for _, t in pairs(LocalPlayer.Backpack:GetChildren()) do
+            if t:IsA("Tool") and t.ToolTip == "Blox Fruit" then
+                toolName = t.Name
+                break
+            end
+        end
+    end
+
+    if toolName then
+        local tool = LocalPlayer.Backpack:FindFirstChild(toolName)
+        if tool then
+            hum:EquipTool(tool)
+        end
+    end
+end
+
+-- ====================================================================
+-- HỆ THỐNG GOM QUÁI (MOB MAGNET & BRING)
+-- ====================================================================
+local function BringMobs(mobName, areaCFrame)
+    for _, enemy in pairs(Workspace.Enemies:GetChildren()) do
+        if enemy.Name == mobName and enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") then
+            if enemy.Humanoid.Health > 0 then
+                enemy.HumanoidRootPart.CanCollide = false
+                enemy.HumanoidRootPart.Size = Vector3.new(40, 40, 40)
+                enemy.HumanoidRootPart.CFrame = areaCFrame
+                if enemy.Humanoid:FindFirstChild("Animator") then
+                    enemy.Humanoid.Animator:Destroy()
+                end
+            end
+        end
+    end
+end
+
+-- ====================================================================
+-- LUỒNG CHẠY CHÍNH: TỰ ĐỘNG CÀY CẤP (KAITUN CORE LOOP)
+-- ====================================================================
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        if _G.KaitunEnabled then
+            pcall(function()
+                local level = LocalPlayer.Data.Level.Value
+
+                -- 1. KIỂM TRA CHUYỂN SEA TỰ ĐỘNG
+                if level >= 700 and CurrentSea == 1 then
+                    -- Thực hiện chuỗi sự kiện mở khóa Sea 2
+                    print("Đang tiến hành mở khóa và dịch chuyển sang Sea 2...")
+                    local questProgress = ReplicatedStorage.Remotes.CommF_:InvokeServer("DressrosaQuestProgress", "Detective")
+                    if questProgress == 0 then
+                        -- Di chuyển đến Prison nhận khóa chìa khía
+                        TweenTo(CFrame.new(4875, 5, 734))
+                        ReplicatedStorage.Remotes.CommF_:InvokeServer("DressrosaQuestProgress", "Detective")
+                    else
+                        -- Đánh bại Ice Admiral ở Ice Island
+                        TweenTo(CFrame.new(1347, 37, -1325))
+                        -- Nhận vũ khí và chiến đấu
+                        EquipSelectedWeapon()
+                        -- Gọi Travel sang Sea 2
+                        ReplicatedStorage.Remotes.CommF_:InvokeServer("TravelDressrosa")
+                    end
+                    return
+                elseif level >= 1500 and CurrentSea == 2 then
+                    -- Thực hiện chuỗi nhiệm vụ mở khóa Sea 3
+                    print("Đang tiến hành nhiệm vụ du hành sang Sea 3...")
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer("TravelZou")
+                    return
+                end
+
+                -- 2. TỰ ĐỘNG NHẬN NHIỆM VỤ & FARM QUÁI THEO CẤP ĐỘ
+                local questData = GetQuestData()
+                if questData and questData.QuestName then
+                    local questGui = LocalPlayer.PlayerGui.Main.Quest
+                    if not questGui.Visible then
+                        -- Di chuyển tới NPC nhận nhiệm vụ
+                        TweenTo(questData.QuestNPC)
+                        task.wait(0.5)
+                        ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", questData.QuestName, questData.LevelIndex)
+                    else
+                        -- Đang có nhiệm vụ hoạt động
+                        local targetMob = Workspace.Enemies:FindFirstChild(questData.MobName)
+                        if not targetMob then
+                            -- Nếu chưa xuất hiện quái, di chuyển tới bãi farm
+                            TweenTo(questData.MobArea)
+                        else
+                            -- Quái xuất hiện -> Di chuyển tới và tiêu diệt
+                            for _, enemy in pairs(Workspace.Enemies:GetChildren()) do
+                                if enemy.Name == questData.MobName and enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") then
+                                    if enemy.Humanoid.Health > 0 then
+                                        -- Gom quái lại một điểm để farm nhanh
+                                        BringMobs(questData.MobName, enemy.HumanoidRootPart.CFrame)
+                                        
+                                        -- Di chuyển ra sau lưng quái tránh bị sát thương nhiều
+                                        TweenTo(enemy.HumanoidRootPart.CFrame * CFrame.new(0, 5, 2))
+                                        
+                                        -- Tự động kích hoạt Haki nếu có
+                                        if not LocalPlayer.Character:FindFirstChild("HasBuso") then
+                                            ReplicatedStorage.Remotes.CommF_:InvokeServer("Buso")
+                                        end
+
+                                        -- Trang bị vũ khí và tấn công liên tục
+                                        EquipSelectedWeapon()
+                                        
+                                        -- Giả lập click tấn công bằng VirtualUser
+                                        game:GetService("VirtualUser"):CaptureController()
+                                        game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
+                                        task.wait(0.1)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- ====================================================================
+-- TỰ ĐỘNG GIẢI ĐỐ SỰ KIỆN SABER EXPERT (AUTO SABER)
+-- ====================================================================
+local Plates = {
+    CFrame.new(-1612, 36, 148), -- Nút Jungle 1
+    CFrame.new(-1594, 35, 155), -- Nút Jungle 2
+    CFrame.new(-1623, 35, 142), -- Nút Jungle 3
+    CFrame.new(-1461, 35, 131), -- Nút Jungle 4
+    CFrame.new(-1412, 35, 125)  -- Nút Jungle 5
+}
+
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if _G.AutoSaber then
+            local level = LocalPlayer.Data.Level.Value
+            if level >= 200 then
+                pcall(function()
+                    print("Đang giải đố tự động lấy kiếm Saber...")
+                    -- 1. Dẫm 5 nút Jungle
+                    for _, plateCF in pairs(Plates) do
+                        TweenTo(plateCF)
+                        task.wait(0.5)
+                    end
+                    -- 2. Nhận đuốc ở Jungle basement
+                    TweenTo(CFrame.new(-1610, 11, 164))
+                    task.wait(0.5)
+                    -- 3. Di chuyển tới Desert đốt cửa lấy chén
+                    TweenTo(CFrame.new(1114, 5, 4350))
+                    task.wait(1)
+                    -- 4. Di chuyển tới Frozen Island hứng nước
+                    TweenTo(CFrame.new(1458, 88, -1390))
+                    task.wait(1)
+                    -- 5. Đưa nước cho Sick Man
+                    TweenTo(CFrame.new(1397, 37, -1320))
+                    task.wait(0.5)
+                    -- 6. Gặp Rich Son tại Pirate Village
+                    TweenTo(CFrame.new(-910, 13, 4078))
+                    task.wait(0.5)
+                    -- 7. Tiêu diệt Mob Leader lấy cổ vật
+                    if Workspace.Enemies:FindFirstChild("Mob Leader") then
+                        local mob = Workspace.Enemies["Mob Leader"]
+                        TweenTo(mob.HumanoidRootPart.CFrame * CFrame.new(0, 5, 2))
+                        EquipSelectedWeapon()
+                        game:GetService("VirtualUser"):CaptureController()
+                        game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672))
+                    else
+                        TweenTo(CFrame.new(-2967, -4, 5328))
+                    end
+                end)
+            else
+                print("Yêu cầu cấp độ 200+ để bắt đầu chuỗi nhiệm vụ Saber!")
+            end
+        end
+    end
+end)
+
+-- ====================================================================
+-- GOM TRÁI ÁC QUỶ & STORE VÀO KHO (AUTO FRUIT COLLECTOR)
+-- ====================================================================
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if _G.AutoCollectFruit then
+            pcall(function()
+                for _, obj in pairs(Workspace:GetChildren()) do
+                    if obj:IsA("Tool") and string.find(obj.Name, "Fruit") then
+                        local handle = obj:FindFirstChild("Handle")
+                        if handle then
+                            print("Đã tìm thấy Trái Ác Quỷ: " .. obj.Name .. ". Tiến hành gom...")
+                            TweenTo(handle.CFrame)
+                            task.wait(0.5)
+                            firetouchinterest(LocalPlayer.Character.HumanoidRootPart, handle, 0)
+                            firetouchinterest(LocalPlayer.Character.HumanoidRootPart, handle, 1)
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(1.5)
+        if _G.AutoStoreFruit then
+            pcall(function()
+                for _, tool in pairs(LocalPlayer.Backpack:GetChildren()) do
+                    if string.find(tool.Name, "Fruit") then
+                        -- Tìm kiếm tên gốc để lưu vào kho
+                        for _, originalName in pairs(FruitList) do
+                            if string.find(tool.Name, originalName) or string.find(originalName, tool.Name) then
+                                print("Tự động lưu trữ trái: " .. tool.Name)
+                                ReplicatedStorage.Remotes.CommF_:InvokeServer("StoreFruit", originalName, tool)
+                                task.wait(0.5)
+                                break
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- ====================================================================
+-- TỰ ĐỘNG MUA MELEE MỚI (AUTO BUY MELEE)
+-- ====================================================================
+task.spawn(function()
+    while true do
+        task.wait(5)
+        if _G.AutoBuyMelee then
+            pcall(function()
+                -- Tự động mua các võ học cận chiến cơ bản và nâng cao khi đủ tài chính
+                local fragments = LocalPlayer.Data.Fragments.Value
+                local beli = LocalPlayer.Data.Beli.Value
+
+                -- Mua võ chân đen (Black Leg)
+                if beli >= 150000 then
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyBlackLeg")
+                end
+                -- Mua võ điện (Electro)
+                if beli >= 500000 then
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyElectro")
+                end
+                -- Mua võ người cá (Fishman Karate)
+                if beli >= 750000 then
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyFishmanKarate")
+                end
+                -- Mua Superhuman (Yêu cầu 3 Triệu Beli)
+                if beli >= 3000000 then
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySuperhuman")
+                end
+            end)
+        end
+    end
+end)
+
+-- ====================================================================
+-- KHỞI TẠO GIAO DIỆN ĐIỀU KHIỂN (GUI SETUP WITH APPLECAT)
+-- ====================================================================
+if AppleCatLibrary then
+    local KaitunTab = Window:CreateTab("Kaitun Cày Cấp", "sword")
+    
+    local FarmSec = KaitunTab:CreateSection("Cấu Hình Tự Động")
+    FarmSec:CreateToggle("Bật Kaitun (Cày cấp 1 - Max)", false, function(state)
+        _G.KaitunEnabled = state
+        if not state and ActiveTween then
+            ActiveTween:Cancel()
+        end
+    end)
+
+    FarmSec:CreateDropdown("Vũ Khí Sử Dụng", {"Melee", "Sword", "Fruit"}, "Melee", function(selection)
+        _G.SelectedWeapon = selection
+    end)
+
+    FarmSec:CreateSlider("Tốc Độ Bay (Tween Speed)", 100, 500, 300, function(value)
+        _G.TweenSpeed = value
+    end)
+
+    local QuestSec = KaitunTab:CreateSection("Nhiệm Vụ Khác")
+    QuestSec:CreateToggle("Tự động lấy kiếm Saber Expert", false, function(state)
+        _G.AutoSaber = state
+    end)
+
+    QuestSec:CreateToggle("Tự động mua Melee mới", false, function(state)
+        _G.AutoBuyMelee = state
+    end)
+
+    local FruitTab = Window:CreateTab("Gom Trái Ác Quỷ", "home")
+    local FruitSec = FruitTab:CreateSection("Gom Trái Tự Động")
+    
+    FruitSec:CreateToggle("Tự động nhặt Trái Ác Quỷ trong Server", false, function(state)
+        _G.AutoCollectFruit = state
+    end)
+
+    FruitSec:CreateToggle("Tự động cất Trái Ác Quỷ vào rương", false, function(state)
+        _G.AutoStoreFruit = state
+    end)
+end
