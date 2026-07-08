@@ -1,0 +1,719 @@
+local Success, AppleCatLibrary = pcall(function()
+    return loadstring(game:HttpGet("https://raw.githubusercontent.com/giahuy0092025-tech/AppleCatHub/refs/heads/main/AppleCatLib.txt"))()
+end)
+
+if not Success or not AppleCatLibrary then
+    return
+end
+
+local Window = AppleCatLibrary:CreateWindow({
+    Title = "AppleCat Universal Premium",
+    Size = UDim2.fromOffset(580, 440),
+    Theme = "Dark",
+    Logo = "rbxassetid://124862059676525",
+    ToggleKey = Enum.KeyCode.RightShift
+})
+
+AppleCatLibrary:Notify({
+    Title = "AppleCat Universal",
+    Content = "Khởi chạy thành công! Nhấn RightShift để bật/tắt menu.",
+    Duration = 5,
+    Color = Color3.fromRGB(0, 255, 150)
+})
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+local TeleportService = game:GetService("TeleportService")
+local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+local State = {
+    WalkSpeed = 16,
+    JumpPower = 50,
+    Gravity = 196.2,
+    HipHeight = 0,
+    InfJump = false,
+    NoClip = false,
+    Fly = false,
+    FlySpeed = 50,
+    SpinBot = false,
+    SpinSpeed = 100,
+    Jesus = false,
+    InfOxygen = false,
+    AntiAFK = false,
+    
+    Aimbot = false,
+    AimbotFOV = 100,
+    DrawFOV = false,
+    AimbotPart = "Head",
+    HitboxExpander = false,
+    HitboxSize = 2,
+    KillAura = false,
+    KillAuraRange = 15,
+    AutoClicker = false,
+    AutoClickDelay = 0.1,
+    TriggerBot = false,
+    Wallbang = false,
+    
+    ESP_Box = false,
+    ESP_Tracers = false,
+    ESP_Names = false,
+    ESP_Distance = false,
+    ESP_Color = Color3.fromRGB(255, 0, 0),
+    Fullbright = false,
+    NoFog = false,
+    NoShadows = false,
+    XRay = false,
+    Spectate = false,
+    SpectatedPlayer = nil,
+    
+    Desync = false,
+    DesyncType = "CFrame",
+    DesyncValue = 50,
+    Freecam = false,
+    FreecamSpeed = 1,
+    ChatSpam = false,
+    ChatSpamDelay = 3,
+    ChatSpamMsg = "AppleCat Universal on top!",
+    ClickTP = false,
+    Btools = false,
+    AntiLag = false,
+    
+    FOVCircle = nil
+}
+
+State.FOVCircle = Drawing.new("Circle")
+State.FOVCircle.Thickness = 1
+State.FOVCircle.NumSides = 60
+State.FOVCircle.Filled = false
+State.FOVCircle.Transparency = 1
+
+local function GetClosestPlayer()
+    local Target = nil
+    local MaxDistance = State.AimbotFOV
+    for _, Player in ipairs(Players:GetPlayers()) do
+        if Player ~= LocalPlayer and Player.Character and Player.Character:FindFirstChild(State.AimbotPart) and Player.Character:FindFirstChildOfClass("Humanoid") and Player.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+            local ScreenPoint, OnScreen = Camera:WorldToScreenPoint(Player.Character[State.AimbotPart].Position)
+            if OnScreen then
+                local MousePos = UserInputService:GetMouseLocation()
+                local Distance = (Vector2.new(ScreenPoint.X, ScreenPoint.Y) - MousePos).Magnitude
+                if Distance < MaxDistance then
+                    Target = Player
+                    MaxDistance = Distance
+                end
+            end
+        end
+    end
+    return Target
+end
+
+local function ApplyHighlight(Player)
+    if Player.Character then
+        local Highlight = Player.Character:FindFirstChildOfClass("Highlight")
+        if not Highlight then
+            Highlight = Instance.new("Highlight")
+            Highlight.Parent = Player.Character
+        end
+        Highlight.Adornee = Player.Character
+        Highlight.FillColor = State.ESP_Color
+        Highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        Highlight.FillTransparency = State.ESP_Box and 0.5 or 1
+        Highlight.OutlineTransparency = State.ESP_Box and 0 or 1
+        Highlight.Enabled = true
+    end
+end
+
+local function RemoveHighlight(Player)
+    if Player.Character then
+        local Highlight = Player.Character:FindFirstChildOfClass("Highlight")
+        if Highlight then
+            Highlight:Destroy()
+        end
+    end
+end
+
+local FreecamPart = nil
+local FreecamActive = false
+
+local function ToggleFreecam(Val)
+    FreecamActive = Val
+    if FreecamActive then
+        FreecamPart = Instance.new("Part")
+        FreecamPart.Size = Vector3.new(1, 1, 1)
+        FreecamPart.Transparency = 1
+        FreecamPart.CanCollide = false
+        FreecamPart.Anchored = true
+        FreecamPart.CFrame = Camera.CFrame
+        FreecamPart.Parent = Workspace
+        Camera.CameraSubject = FreecamPart
+    else
+        if FreecamPart then
+            FreecamPart:Destroy()
+            FreecamPart = nil
+        end
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            Camera.CameraSubject = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        end
+    end
+end
+
+local HomeTab = Window:CreateTab("Trang Chủ", "home")
+local InfoSec = HomeTab:CreateSection("Thông tin hệ thống")
+
+InfoSec:CreateButton("Kiểm tra tài khoản", function()
+    AppleCatLibrary:Notify({
+        Title = "Tài Khoản",
+        Content = "Tên: " .. LocalPlayer.Name .. " | ID: " .. LocalPlayer.UserId,
+        Duration = 5
+    })
+end)
+
+InfoSec:CreateButton("Sao chép Discord", function()
+    setclipboard("https://discord.gg/applecat")
+    AppleCatLibrary:Notify({
+        Title = "Hệ Thống",
+        Content = "Đã sao chép liên kết Discord!",
+        Duration = 3
+    })
+end)
+
+InfoSec:CreateButton("Tối ưu FPS", function()
+    setfpscap(360)
+    AppleCatLibrary:Notify({
+        Title = "Hệ Thống",
+        Content = "Đã mở khóa giới hạn FPS lên 360!",
+        Duration = 3
+    })
+end)
+
+InfoSec:CreateButton("Giảm đồ họa", function()
+    settings().Rendering.QualityLevel = 1
+    AppleCatLibrary:Notify({
+        Title = "Hệ Thống",
+        Content = "Đã tối ưu cấu hình đồ họa thấp nhất!",
+        Duration = 3
+    })
+end)
+
+InfoSec:CreateButton("Hồi sinh nhân vật", function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character:FindFirstChildOfClass("Humanoid").Health = 0
+    end
+end)
+
+InfoSec:CreateButton("Tham gia lại server", function()
+    TeleportService:Teleport(game.PlaceId, LocalPlayer)
+end)
+
+InfoSec:CreateButton("Đổi Server ngẫu nhiên", function()
+    local Servers = HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"))
+    for _, S in pairs(Servers.data) do
+        if S.playing < S.maxPlayers and S.id ~= game.JobId then
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, S.id, LocalPlayer)
+            break
+        end
+    end
+end)
+
+InfoSec:CreateToggle("Chống Treo Máy (Anti-AFK)", false, function(Val)
+    State.AntiAFK = Val
+    if State.AntiAFK then
+        LocalPlayer.Idled:Connect(function()
+            local VirtualUser = game:GetService("VirtualUser")
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+        end)
+    end
+end)
+
+
+local PlayerTab = Window:CreateTab("Nhân Vật", "user")
+local PhysSec = PlayerTab:CreateSection("Vật lý & Di chuyển")
+
+PhysSec:CreateSlider("Tốc độ chạy", 16, 500, 16, function(Val)
+    State.WalkSpeed = Val
+end)
+
+PhysSec:CreateSlider("Sức nhảy", 50, 500, 50, function(Val)
+    State.JumpPower = Val
+end)
+
+PhysSec:CreateSlider("Trọng lực", 0, 500, 196, function(Val)
+    State.Gravity = Val
+    Workspace.Gravity = Val
+end)
+
+PhysSec:CreateSlider("Độ cao hông", 0, 20, 0, function(Val)
+    State.HipHeight = Val
+end)
+
+PhysSec:CreateToggle("Nhảy vô hạn", false, function(Val)
+    State.InfJump = Val
+end)
+
+PhysSec:CreateToggle("Đi xuyên tường (NoClip)", false, function(Val)
+    State.NoClip = Val
+end)
+
+PhysSec:CreateToggle("Bay (Fly)", false, function(Val)
+    State.Fly = Val
+end)
+
+PhysSec:CreateSlider("Tốc độ bay", 10, 300, 50, function(Val)
+    State.FlySpeed = Val
+end)
+
+PhysSec:CreateToggle("Xoay vòng (Spin Bot)", false, function(Val)
+    State.SpinBot = Val
+end)
+
+PhysSec:CreateSlider("Tốc độ xoay", 10, 500, 100, function(Val)
+    State.SpinSpeed = Val
+end)
+
+PhysSec:CreateToggle("Đi trên nước (Jesus)", false, function(Val)
+    State.Jesus = Val
+end)
+
+PhysSec:CreateToggle("Oxy vô hạn", false, function(Val)
+    State.InfOxygen = Val
+end)
+
+PhysSec:CreateButton("Dịch chuyển tới Click chuột", function()
+    local Tool = Instance.new("Tool")
+    Tool.RequiresHandle = false
+    Tool.Name = "Click TP Tool"
+    Tool.Activated:Connect(function()
+        local Mouse = LocalPlayer:GetMouse()
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(Mouse.Hit.p) + Vector3.new(0, 3, 0)
+        end
+    end)
+    Tool.Parent = LocalPlayer.Backpack
+end)
+
+
+local CombatTab = Window:CreateTab("Chiến Đấu", "sword")
+local AimSec = CombatTab:CreateSection("Aimbot & Hitbox")
+
+AimSec:CreateToggle("Tự động ngắm (Aimbot)", false, function(Val)
+    State.Aimbot = Val
+end)
+
+AimSec:CreateSlider("Phạm vi ngắm (FOV)", 10, 800, 100, function(Val)
+    State.AimbotFOV = Val
+    State.FOVCircle.Radius = Val
+end)
+
+AimSec:CreateToggle("Hiển thị vòng FOV", false, function(Val)
+    State.DrawFOV = Val
+    State.FOVCircle.Visible = Val
+end)
+
+AimSec:CreateDropdown("Bộ phận ngắm", {"Head", "HumanoidRootPart", "Torso"}, "Head", function(Val)
+    State.AimbotPart = Val
+end)
+
+AimSec:CreateToggle("Mở rộng Hitbox", false, function(Val)
+    State.HitboxExpander = Val
+end)
+
+AimSec:CreateSlider("Kích thước Hitbox", 2, 50, 2, function(Val)
+    State.HitboxSize = Val
+end)
+
+AimSec:CreateToggle("Kill Aura", false, function(Val)
+    State.KillAura = Val
+end)
+
+AimSec:CreateSlider("Khoảng cách Kill Aura", 5, 50, 15, function(Val)
+    State.KillAuraRange = Val
+end)
+
+AimSec:CreateToggle("Tự động click chuột", false, function(Val)
+    State.AutoClicker = Val
+end)
+
+AimSec:CreateSlider("Độ trễ click (giây)", 0.01, 1, 0.1, function(Val)
+    State.AutoClickDelay = Val
+end)
+
+AimSec:CreateToggle("Trigger Bot", false, function(Val)
+    State.TriggerBot = Val
+end)
+
+AimSec:CreateToggle("Bắn xuyên tường (Wallbang)", false, function(Val)
+    State.Wallbang = Val
+end)
+
+
+local VisualsTab = Window:CreateTab("Hình Ảnh", "eye")
+local EspSec = VisualsTab:CreateSection("ESP & Hiệu ứng")
+
+EspSec:CreateToggle("Hiện khung người chơi (ESP Box)", false, function(Val)
+    State.ESP_Box = Val
+    for _, P in ipairs(Players:GetPlayers()) do
+        if P ~= LocalPlayer then
+            if Val then ApplyHighlight(P) else RemoveHighlight(P) end
+        end
+    end
+end)
+
+EspSec:CreateToggle("Đường dẫn hướng (Tracers)", false, function(Val)
+    State.ESP_Tracers = Val
+end)
+
+EspSec:CreateToggle("Hiện tên người chơi", false, function(Val)
+    State.ESP_Names = Val
+end)
+
+EspSec:CreateToggle("Hiện khoảng cách", false, function(Val)
+    State.ESP_Distance = Val
+end)
+
+EspSec:CreateColorpicker("Màu sắc ESP", Color3.fromRGB(255, 0, 0), function(Val)
+    State.ESP_Color = Val
+    for _, P in ipairs(Players:GetPlayers()) do
+        if P ~= LocalPlayer and State.ESP_Box then ApplyHighlight(P) end
+    end
+end)
+
+EspSec:CreateToggle("Sáng toàn bản đồ (Fullbright)", false, function(Val)
+    State.Fullbright = Val
+    if Val then
+        Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+    else
+        Lighting.Ambient = Color3.fromRGB(128, 128, 128)
+        Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
+    end
+end)
+
+EspSec:CreateToggle("Xóa sương mù (No Fog)", false, function(Val)
+    State.NoFog = Val
+    if Val then
+        Lighting.FogEnd = 999999
+    end
+end)
+
+EspSec:CreateToggle("Tắt bóng đổ (No Shadows)", false, function(Val)
+    State.NoShadows = Val
+    Lighting.GlobalShadows = not Val
+end)
+
+EspSec:CreateToggle("Nhìn xuyên tường (X-Ray)", false, function(Val)
+    State.XRay = Val
+    for _, Obj in ipairs(Workspace:GetDescendants()) do
+        if Obj:IsA("BasePart") and not Obj:IsDescendantOf(LocalPlayer.Character) then
+            if Val then
+                if not Obj:GetAttribute("OrigTrans") then
+                    Obj:SetAttribute("OrigTrans", Obj.Transparency)
+                end
+                Obj.Transparency = 0.6
+            else
+                local Orig = Obj:GetAttribute("OrigTrans")
+                if Orig then
+                    Obj.Transparency = Orig
+                end
+            end
+        end
+    end
+end)
+
+local SpectateDropdown = nil
+local function UpdateSpectateDropdown()
+    local Names = {}
+    for _, P in ipairs(Players:GetPlayers()) do
+        if P ~= LocalPlayer then
+            table.insert(Names, P.Name)
+        end
+    end
+    if SpectateDropdown then
+        SpectateDropdown:Refresh(Names)
+    end
+end
+
+EspSec:CreateToggle("Theo dõi người chơi (Spectate)", false, function(Val)
+    State.Spectate = Val
+    if not Val then
+        Camera.CameraSubject = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    end
+end)
+
+SpectateDropdown = EspSec:CreateDropdown("Chọn người chơi", {}, "", function(Val)
+    local Target = Players:FindFirstChild(Val)
+    if Target and Target.Character and Target.Character:FindFirstChildOfClass("Humanoid") then
+        State.SpectatedPlayer = Target
+        if State.Spectate then
+            Camera.CameraSubject = Target.Character:FindFirstChildOfClass("Humanoid")
+        end
+    end
+end)
+
+Players.PlayerAdded:Connect(UpdateSpectateDropdown)
+Players.PlayerRemoving:Connect(UpdateSpectateDropdown)
+UpdateSpectateDropdown()
+
+
+local ExploitTab = Window:CreateTab("Khai Thác", "terminal")
+local ExploitSec = ExploitTab:CreateSection("Tính năng nâng cao")
+
+ExploitSec:CreateToggle("Kích hoạt Desync", false, function(Val)
+    State.Desync = Val
+end)
+
+ExploitSec:CreateDropdown("Phương thức Desync", {"CFrame", "Velocity", "Backwards"}, "CFrame", function(Val)
+    State.DesyncType = Val
+end)
+
+ExploitSec:CreateSlider("Độ lệch Desync", 10, 200, 50, function(Val)
+    State.DesyncValue = Val
+end)
+
+ExploitSec:CreateToggle("Tự do camera (Freecam)", false, function(Val)
+    ToggleFreecam(Val)
+end)
+
+ExploitSec:CreateSlider("Tốc độ Freecam", 1, 10, 1, function(Val)
+    State.FreecamSpeed = Val
+end)
+
+ExploitSec:CreateToggle("Spam Chat", false, function(Val)
+    State.ChatSpam = Val
+    task.spawn(function()
+        while State.ChatSpam do
+            local ChatEvent = ReplicatedStorage:FindFirstChild("DefaultChatSystemChatEvents") and ReplicatedStorage.DefaultChatSystemChatEvents:FindFirstChild("SayMessageRequest")
+            if ChatEvent then
+                ChatEvent:FireServer(State.ChatSpamMsg, "All")
+            else
+                game:GetService("TextChatService").TextChannels.RBXGeneral:SendAsync(State.ChatSpamMsg)
+            end
+            task.wait(State.ChatSpamDelay)
+        end
+    end)
+end)
+
+ExploitSec:CreateSlider("Độ trễ Spam Chat (giây)", 1, 10, 3, function(Val)
+    State.ChatSpamDelay = Val
+end)
+
+ExploitSec:CreateTextbox("Nội dung Spam Chat", "Nhập văn bản...", true, function(Val)
+    State.ChatSpamMsg = Val
+end)
+
+ExploitSec:CreateButton("Cung cấp công cụ Btools", function()
+    local Tool1 = Instance.new("HopperBin")
+    local Tool2 = Instance.new("HopperBin")
+    local Tool3 = Instance.new("HopperBin")
+    Tool1.BinType = 1
+    Tool2.BinType = 3
+    Tool3.BinType = 4
+    Tool1.Parent = LocalPlayer.Backpack
+    Tool2.Parent = LocalPlayer.Backpack
+    Tool3.Parent = LocalPlayer.Backpack
+end)
+
+ExploitSec:CreateToggle("Giảm thiểu giật lag", false, function(Val)
+    State.AntiLag = Val
+    if Val then
+        for _, V in ipairs(Workspace:GetDescendants()) do
+            if V:IsA("PostEffect") or V:IsA("Explosion") or V:IsA("Sparkles") then
+                V.Enabled = false
+            end
+        end
+    end
+end)
+
+
+local SettingsTab = Window:CreateTab("Hệ Thống", "settings")
+local UI_Sec = SettingsTab:CreateSection("Cấu hình giao diện")
+
+UI_Sec:CreateDropdown("Thay đổi Theme", {"Dark", "Light", "CyberCat", "Sakura"}, "Dark", function(Val)
+    Window:OnThemeChange(Val)
+end)
+
+UI_Sec:CreateColorpicker("Tùy biến Accent", Color3.fromRGB(255, 105, 180), function(Val)
+    print("Màu tùy chọn:", Val)
+end)
+
+UI_Sec:CreateImageToggle("Hiển thị logo", true, function(Val)
+    print("Trạng thái logo:", Val)
+end)
+
+UI_Sec:CreateButton("Tắt hoàn toàn GUI", function()
+    State.FOVCircle:Destroy()
+    Window:Destroy()
+end)
+
+
+UserInputService.JumpRequest:Connect(function()
+    if State.InfJump and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+    end
+end)
+
+RunService.Stepped:Connect(function()
+    if State.NoClip and LocalPlayer.Character then
+        for _, Part in ipairs(LocalPlayer.Character:GetDescendants()) do
+            if Part:IsA("BasePart") then
+                Part.CanCollide = false
+            end
+        end
+    end
+end)
+
+local TracersFolder = Instance.new("Folder", Workspace)
+TracersFolder.Name = "AppleCat_Tracers"
+
+RunService.RenderStepped:Connect(function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        local Hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        Hum.WalkSpeed = State.WalkSpeed
+        Hum.JumpPower = State.JumpPower
+    end
+    
+    if State.Fly and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local HRP = LocalPlayer.Character.HumanoidRootPart
+        local MoveDir = LocalPlayer.Character:FindFirstChildOfClass("Humanoid").MoveDirection
+        HRP.Velocity = MoveDir * State.FlySpeed + Vector3.new(0, 0.5, 0)
+    end
+    
+    if State.SpinBot and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local HRP = LocalPlayer.Character.HumanoidRootPart
+        HRP.CFrame = HRP.CFrame * CFrame.Angles(0, math.rad(State.SpinSpeed / 10), 0)
+    end
+    
+    if State.Jesus and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local HRP = LocalPlayer.Character.HumanoidRootPart
+        local RayCast = RaycastParams.new()
+        RayCast.FilterType = Enum.RaycastFilterType.Blacklist
+        RayCast.FilterDescendantsInstances = {LocalPlayer.Character}
+        local Result = Workspace:Raycast(HRP.Position, Vector3.new(0, -3.5, 0), RayCast)
+        if Result and (Result.Material == Enum.Material.Water) then
+            HRP.Velocity = Vector3.new(HRP.Velocity.X, 0, HRP.Velocity.Z)
+            HRP.CFrame = HRP.CFrame + Vector3.new(0, -Result.Position.Y + HRP.Position.Y - 3, 0)
+        end
+    end
+    
+    if State.InfOxygen and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        LocalPlayer.Character:FindFirstChildOfClass("Humanoid").MaxOxygen = 99999
+        LocalPlayer.Character:FindFirstChildOfClass("Humanoid").Oxygen = 99999
+    end
+    
+    if State.Aimbot then
+        local Target = GetClosestPlayer()
+        if Target and Target.Character and Target.Character:FindFirstChild(State.AimbotPart) then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, Target.Character[State.AimbotPart].Position)
+        end
+    end
+    
+    if State.DrawFOV then
+        State.FOVCircle.Position = UserInputService:GetMouseLocation()
+    end
+    
+    if State.HitboxExpander then
+        for _, P in ipairs(Players:GetPlayers()) do
+            if P ~= LocalPlayer and P.Character and P.Character:FindFirstChild("HumanoidRootPart") then
+                local Part = P.Character.HumanoidRootPart
+                Part.Size = Vector3.new(State.HitboxSize, State.HitboxSize, State.HitboxSize)
+                Part.Transparency = 0.7
+                Part.Color = Color3.fromRGB(255, 0, 0)
+                Part.CanCollide = false
+            end
+        end
+    end
+    
+    if State.KillAura then
+        for _, P in ipairs(Players:GetPlayers()) do
+            if P ~= LocalPlayer and P.Character and P.Character:FindFirstChild("HumanoidRootPart") and P.Character:FindFirstChildOfClass("Humanoid") and P.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+                local HRP = P.Character.HumanoidRootPart
+                local LocalHRP = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if LocalHRP and (HRP.Position - LocalHRP.Position).Magnitude <= State.KillAuraRange then
+                    local Tool = LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                    if Tool then
+                        Tool:Activate()
+                    end
+                end
+            end
+        end
+    end
+    
+    if State.TriggerBot then
+        local Mouse = LocalPlayer:GetMouse()
+        if Mouse.Target and Mouse.Target.Parent then
+            local Player = Players:GetPlayerFromCharacter(Mouse.Target.Parent)
+            if Player and Player ~= LocalPlayer then
+                local Tool = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Tool")
+                if Tool then
+                    Tool:Activate()
+                end
+            end
+        end
+    end
+    
+    TracersFolder:ClearAllChildren()
+    if State.ESP_Tracers then
+        for _, P in ipairs(Players:GetPlayers()) do
+            if P ~= LocalPlayer and P.Character and P.Character:FindFirstChild("HumanoidRootPart") then
+                local ScreenPoint, OnScreen = Camera:WorldToScreenPoint(P.Character.HumanoidRootPart.Position)
+                if OnScreen then
+                    local Tracer = Drawing.new("Line")
+                    Tracer.From = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y)
+                    Tracer.To = Vector2.new(ScreenPoint.X, ScreenPoint.Y)
+                    Tracer.Color = State.ESP_Color
+                    Tracer.Thickness = 1
+                    Tracer.Transparency = 1
+                    Tracer.Visible = true
+                    task.spawn(function()
+                        task.wait()
+                        Tracer:Destroy()
+                    end)
+                end
+            end
+        end
+    end
+    
+    if State.Spectate and State.SpectatedPlayer and State.SpectatedPlayer.Character and State.SpectatedPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        Camera.CameraSubject = State.SpectatedPlayer.Character:FindFirstChildOfClass("Humanoid")
+    end
+    
+    if State.Desync and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local HRP = LocalPlayer.Character.HumanoidRootPart
+        if State.DesyncType == "CFrame" then
+            HRP.CFrame = HRP.CFrame * CFrame.new(math.random(-State.DesyncValue, State.DesyncValue)/10, 0, math.random(-State.DesyncValue, State.DesyncValue)/10)
+        elseif State.DesyncType == "Velocity" then
+            HRP.Velocity = Vector3.new(math.random(-1000, 1000), 0, math.random(-1000, 1000))
+        elseif State.DesyncType == "Backwards" then
+            HRP.CFrame = HRP.CFrame * CFrame.Angles(0, math.rad(180), 0)
+        end
+    end
+    
+    if FreecamActive and FreecamPart then
+        local Frame = Camera.CFrame
+        local Dir = Vector3.new()
+        if UserInputService:IsKeyDown(Enum.KeyCode.W) then Dir = Dir + Frame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.S) then Dir = Dir - Frame.LookVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.A) then Dir = Dir - Frame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.D) then Dir = Dir + Frame.RightVector end
+        if UserInputService:IsKeyDown(Enum.KeyCode.E) then Dir = Dir + Vector3.new(0, 1, 0) end
+        if UserInputService:IsKeyDown(Enum.KeyCode.Q) then Dir = Dir - Vector3.new(0, 1, 0) end
+        FreecamPart.CFrame = FreecamPart.CFrame + Dir * State.FreecamSpeed
+        Camera.CFrame = FreecamPart.CFrame
+    end
+end)
+
+task.spawn(function()
+    while task.wait(State.AutoClickDelay) do
+        if State.AutoClicker then
+            local VirtualInputManager = game:GetService("VirtualInputManager")
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+        end
+    end
+end)
